@@ -2,6 +2,10 @@
 
 Servidor MCP (Model Context Protocol) para integração com o sistema PJE (Processo Judicial Eletrônico) brasileiro, com suporte completo a certificados digitais A1 e A3.
 
+<a href="https://glama.ai/mcp/servers/@chapirousIA/pje-mcp-server">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@chapirousIA/pje-mcp-server/badge" alt="PJE Server MCP server" />
+</a>
+
 ## 🚀 Características
 
 - ✅ **Integração completa com PJE** - Acesso total à API do PJE
@@ -200,4 +204,4 @@ Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para ma
 
 ---
 
-Desenvolvido com ❤️ para a comunidade jurídica brasileira 
+Desenvolvido com ❤️ para a comunidade jurídica brasileira
