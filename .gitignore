@@ -1,0 +1,66 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Build output
+build/
+dist/
+*.js
+*.d.ts
+*.js.map
+
+# Environment files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS files
+Thumbs.db
+desktop.ini
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Certificates (security)
+*.pfx
+*.p12
+*.pem
+*.key
+*.crt
+*.cer
+certificados/
+certs/
+
+# Claude Desktop config (personal)
+claude_desktop_config.json
+!examples/claude_desktop_config.json
+
+# Backup files
+*.backup
+*.bak 

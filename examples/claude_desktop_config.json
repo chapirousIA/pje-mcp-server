@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "pje": {
+      "command": "node",
+      "args": ["C:\\Users\\seu-usuario\\pje-mcp-server\\build\\index.js"],
+      "env": {
+        "NODE_ENV": "production"
+      }
+    },
+    "pje-dev": {
+      "command": "node",
+      "args": ["C:\\Users\\seu-usuario\\pje-mcp-server-dev\\build\\index.js"],
+      "env": {
+        "NODE_ENV": "development",
+        "PJE_DEBUG": "true"
+      }
+    }
+  }
+} 

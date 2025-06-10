@@ -1,0 +1,55 @@
+{
+  "name": "pje-mcp-server",
+  "version": "1.0.0",
+  "description": "Servidor MCP para integração com o sistema PJE (Processo Judicial Eletrônico) brasileiro",
+  "main": "build/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node build/index.js",
+    "dev": "tsc && node build/index.js",
+    "test": "node build/test-server.js",
+    "clean": "rm -rf build",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "pje",
+    "processo-judicial-eletronico",
+    "mcp",
+    "model-context-protocol",
+    "api",
+    "juridico",
+    "certificado-digital",
+    "tribunal",
+    "tjce",
+    "trf5"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/seu-usuario/pje-mcp-server.git"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.5.0",
+    "axios": "^1.9.0",
+    "dotenv": "^16.4.5",
+    "node-forge": "^1.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.51",
+    "@types/node-forge": "^1.3.11",
+    "typescript": "^5.8.3"
+  },
+  "files": [
+    "build",
+    "docs",
+    "examples"
+  ],
+  "bin": {
+    "pje-mcp-server": "build/index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+} 
