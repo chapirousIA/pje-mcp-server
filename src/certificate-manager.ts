@@ -1,169 +1,126 @@
-import { readFileSync } from 'fs';
-import https from 'https';
-import forge from 'node-forge';
-import { execSync } from 'child_process';
-import path from 'path';
+import { Agent } from 'https';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import * as fs from 'fs/promises';
+import * as path from 'path';
+
+const execAsync = promisify(exec);
 
 export interface CertificateConfig {
+  certificateThumbprint: string;
+  certificatePath?: string;
+  certificatePassword: string;
   pfxPath?: string;
   pfxPassword?: string;
-  certificateThumbprint?: string;
   certificateSubject?: string;
-  tokenProvider?: string;
-  tokenPin?: string;
+}
+
+interface TokenCertificate {
+  thumbprint: string;
+  provider: string;
+}
+
+interface TokenKey {
+  password: string;
+  provider: string;
 }
 
 export class CertificateManager {
-  private certificate?: string;
-  private privateKey?: string;
-  private httpsAgent?: https.Agent;
+  private config: CertificateConfig;
+  private agent: Agent | null = null;
 
-  constructor(private config: CertificateConfig) {}
+  constructor(config: CertificateConfig) {
+    this.config = config;
+  }
 
   async initialize(): Promise<void> {
-    if (this.config.pfxPath && this.config.pfxPassword) {
-      await this.loadFromPfx();
-    } else if (this.config.certificateThumbprint || this.config.certificateSubject) {
-      await this.loadFromWindowsStore();
-    } else if (this.config.tokenProvider) {
-      await this.loadFromToken();
-    } else {
-      throw new Error('Nenhuma configuração de certificado válida fornecida');
+    console.log('Iniciando CertificateManager com config:', {
+      ...this.config,
+      certificatePassword: '***' // Ocultar senha nos logs
+    });
+    
+    if (!this.config.certificateThumbprint) {
+      throw new Error('Thumbprint do certificado não fornecido');
     }
-  }
 
-  private async loadFromPfx(): Promise<void> {
     try {
-      const pfxBuffer = readFileSync(this.config.pfxPath!);
-      const p12Asn1 = forge.asn1.fromDer(pfxBuffer.toString('binary'));
-      const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, this.config.pfxPassword || '');
-
-      const certBags = p12.getBags({ bagType: forge.pki.oids.certBag });
-      const keyBags = p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag });
-
-      const certBag = certBags[forge.pki.oids.certBag]?.[0];
-      const keyBag = keyBags[forge.pki.oids.pkcs8ShroudedKeyBag]?.[0];
-
-      if (!certBag || !keyBag) {
-        throw new Error('Certificado ou chave privada não encontrados no arquivo PFX');
+      // Verificar se o certificado está disponível
+      console.log('Verificando certificado no repositório...');
+      const { stdout, stderr } = await execAsync(`certutil -user -store My "${this.config.certificateThumbprint}"`);
+      
+      if (stderr) {
+        console.error('Erro ao verificar certificado:', stderr);
+      }
+      
+      console.log('Resposta do certutil:', stdout);
+      
+      if (!stdout.includes(this.config.certificateThumbprint)) {
+        throw new Error('Certificado não encontrado no repositório');
       }
 
-      this.certificate = forge.pki.certificateToPem(certBag.cert!);
-      this.privateKey = forge.pki.privateKeyToPem(keyBag.key!);
+      // Verificar se o token está conectado
+      console.log('Verificando status do token...');
+      const { stdout: tokenStatus } = await execAsync('certutil -user -csp "SafeSign IC Standard Windows Cryptographic Service Provider" -key');
+      console.log('Status do token:', tokenStatus);
 
-      this.httpsAgent = new https.Agent({
-        cert: this.certificate,
-        key: this.privateKey,
-        rejectUnauthorized: false
+      // Configurar o agente HTTPS com o certificado do token
+      console.log('Configurando agente HTTPS com certificado do token...');
+      const cert: TokenCertificate = {
+        thumbprint: this.config.certificateThumbprint,
+        provider: 'SafeSign IC Standard Windows Cryptographic Service Provider'
+      };
+
+      const key: TokenKey = {
+        password: this.config.certificatePassword,
+        provider: 'SafeSign IC Standard Windows Cryptographic Service Provider'
+      };
+
+      this.agent = new Agent({
+        rejectUnauthorized: false,
+        cert: cert as any,
+        key: key as any,
+        ciphers: 'HIGH:!aNULL:!MD5:!RC4',
+        minVersion: 'TLSv1.2',
+        secureOptions: 0x00000001 // SSL_OP_NO_SSLv2
       });
 
+      console.log('Certificado inicializado com sucesso');
     } catch (error) {
-      throw new Error(`Erro ao carregar certificado PFX: ${error}`);
-    }
-  }
-
-  private async loadFromWindowsStore(): Promise<void> {
-    try {
-      const tempDir = process.env.TEMP || 'C:\\temp';
-      const tempPfxPath = path.join(tempDir, 'temp_cert.pfx');
-      const tempPassword = 'temp123';
-
-      let certutilCommand = 'certutil -store My';
-      
-      if (this.config.certificateThumbprint) {
-        certutilCommand = `certutil -exportPFX -p "${tempPassword}" My "${this.config.certificateThumbprint}" "${tempPfxPath}"`;
-      } else if (this.config.certificateSubject) {
-        certutilCommand = `certutil -exportPFX -p "${tempPassword}" My "${this.config.certificateSubject}" "${tempPfxPath}"`;
+      console.error('Erro detalhado ao inicializar certificado:', error);
+      if (error instanceof Error) {
+        throw new Error(`Falha ao inicializar certificado: ${error.message}`);
       }
-
-      execSync(certutilCommand, { encoding: 'utf8' });
-
-      this.config.pfxPath = tempPfxPath;
-      this.config.pfxPassword = tempPassword;
-      await this.loadFromPfx();
-
-      execSync(`del "${tempPfxPath}"`);
-
-    } catch (error) {
-      throw new Error(`Erro ao carregar certificado do Windows Store: ${error}`);
+      throw new Error('Falha ao inicializar certificado');
     }
   }
 
-  private async loadFromToken(): Promise<void> {
-    throw new Error('Suporte para token/smartcard ainda não implementado. Use arquivo PFX ou certificado do Windows.');
+  getAgent(): Agent {
+    if (!this.agent) {
+      throw new Error('Certificado não inicializado');
+    }
+    return this.agent;
   }
 
-  getHttpsAgent(): https.Agent {
-    if (!this.httpsAgent) {
-      throw new Error('Certificado não inicializado. Execute initialize() primeiro.');
+  getHttpsAgent(): Agent {
+    if (!this.agent) {
+      throw new Error('Certificado não inicializado');
     }
-    return this.httpsAgent;
+    return this.agent;
   }
 
-  getCertificate(): string {
-    if (!this.certificate) {
-      throw new Error('Certificado não carregado');
+  getCertificate(): any {
+    if (!this.agent) {
+      throw new Error('Certificado não inicializado');
     }
-    return this.certificate;
+    return this.agent.options.cert || this.agent.options.pfx;
   }
 
   getCertificateInfo(): any {
-    if (!this.certificate) {
-      throw new Error('Certificado não carregado');
-    }
-
-    try {
-      const cert = forge.pki.certificateFromPem(this.certificate);
-      return {
-        subject: cert.subject.attributes.map(attr => ({
-          name: attr.name,
-          value: attr.value
-        })),
-        issuer: cert.issuer.attributes.map(attr => ({
-          name: attr.name,
-          value: attr.value
-        })),
-        serialNumber: cert.serialNumber,
-        notBefore: cert.validity.notBefore,
-        notAfter: cert.validity.notAfter,
-        thumbprint: forge.md.sha1.create().update(
-          forge.asn1.toDer(forge.pki.certificateToAsn1(cert)).getBytes()
-        ).digest().toHex()
-      };
-    } catch (error) {
-      throw new Error(`Erro ao obter informações do certificado: ${error}`);
-    }
-  }
-
-  static async listWindowsCertificates(): Promise<any[]> {
-    try {
-      const output = execSync('certutil -store My', { encoding: 'utf8' });
-      const certificates = [];
-      
-      const lines = output.split('\n');
-      let currentCert: any = {};
-      
-      for (const line of lines) {
-        if (line.includes('Serial Number:')) {
-          if (currentCert.serialNumber) {
-            certificates.push(currentCert);
-            currentCert = {};
-          }
-          currentCert.serialNumber = line.split(':')[1].trim();
-        } else if (line.includes('Subject:')) {
-          currentCert.subject = line.split(':')[1].trim();
-        } else if (line.includes('Cert Hash(sha1):')) {
-          currentCert.thumbprint = line.split(':')[1].trim().replace(/\s/g, '');
-        }
-      }
-      
-      if (currentCert.serialNumber) {
-        certificates.push(currentCert);
-      }
-      
-      return certificates;
-    } catch (error) {
-      throw new Error(`Erro ao listar certificados: ${error}`);
-    }
+    return {
+      thumbprint: this.config.certificateThumbprint,
+      path: this.config.certificatePath,
+      hasPassword: !!this.config.certificatePassword,
+      provider: 'SafeSign IC Standard Windows Cryptographic Service Provider'
+    };
   }
 } 

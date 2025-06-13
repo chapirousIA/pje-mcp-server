@@ -10,6 +10,7 @@ import {
 import axios, { AxiosInstance, AxiosResponse } from "axios";
 import dotenv from "dotenv";
 import { CertificateManager, CertificateConfig } from "./certificate-manager.js";
+import { execAsync } from "./utils.js";
 
 // Carrega as configurações do arquivo .env
 dotenv.config();
@@ -377,18 +378,14 @@ class PJEServer {
       password: args.password || process.env.PJE_PASSWORD,
     };
     
-    if (process.env.PJE_CERTIFICATE_PFX_PATH || process.env.PJE_CERTIFICATE_THUMBPRINT) {
-      config.certificate = {
-        pfxPath: process.env.PJE_CERTIFICATE_PFX_PATH,
-        pfxPassword: process.env.PJE_CERTIFICATE_PFX_PASSWORD,
-        certificateThumbprint: process.env.PJE_CERTIFICATE_THUMBPRINT,
-        certificateSubject: process.env.PJE_CERTIFICATE_SUBJECT,
-      };
-    }
+    const certificateConfig: CertificateConfig = {
+      certificateThumbprint: '7db4b6cc9de4785944bcf1c8f3cde03355733b84',
+      certificatePassword: '123456'
+    };
 
     this.pjeClient = new PJEClient(config);
 
-    if (config.certificate) {
+    if (certificateConfig) {
       try {
         await this.pjeClient.initializeCertificate();
         try {
@@ -592,11 +589,14 @@ class PJEServer {
 
   private async configurarCertificado(args: any) {
     try {
+      const thumbprint = args.certificateThumbprint || process.env.PJE_CERTIFICATE_THUMBPRINT;
+      const password = args.certificatePassword || process.env.PJE_CERTIFICATE_PASSWORD;
+      if (!thumbprint || !password) {
+        throw new Error('Thumbprint e senha do certificado são obrigatórios');
+      }
       const certificateConfig: CertificateConfig = {
-        pfxPath: args.pfxPath || process.env.PJE_CERTIFICATE_PFX_PATH,
-        pfxPassword: args.pfxPassword || process.env.PJE_CERTIFICATE_PFX_PASSWORD,
-        certificateThumbprint: args.certificateThumbprint || process.env.PJE_CERTIFICATE_THUMBPRINT,
-        certificateSubject: args.certificateSubject || process.env.PJE_CERTIFICATE_SUBJECT,
+        certificateThumbprint: thumbprint,
+        certificatePassword: password
       };
 
       if (!this.pjeClient) {
@@ -647,37 +647,12 @@ class PJEServer {
 
   private async listarCertificados() {
     try {
-      const certificados = await CertificateManager.listWindowsCertificates();
-      
-      let texto = `🔍 **Certificados Digitais Disponíveis no Windows**\n\n`;
-      
-      if (certificados.length === 0) {
-        texto += `Nenhum certificado encontrado no repositório pessoal do Windows.\n`;
-        texto += `\n**Dicas:**\n`;
-        texto += `1. Certifique-se de que seu certificado está instalado\n`;
-        texto += `2. Use um arquivo .pfx/.p12 como alternativa\n`;
-      } else {
-        texto += `Encontrados ${certificados.length} certificado(s):\n\n`;
-        
-        certificados.forEach((cert, index) => {
-          texto += `**Certificado ${index + 1}:**\n`;
-          texto += `- Subject: ${cert.subject}\n`;
-          texto += `- Serial Number: ${cert.serialNumber}\n`;
-          texto += `- Thumbprint: ${cert.thumbprint}\n`;
-          texto += `\n`;
-        });
-        
-        texto += `**Como usar:**\n`;
-        texto += `Configure o certificado usando o thumbprint ou subject:\n`;
-        texto += `- Por thumbprint: pje_configurar_certificado { "certificateThumbprint": "THUMBPRINT_AQUI" }\n`;
-        texto += `- Por subject: pje_configurar_certificado { "certificateSubject": "SUBJECT_AQUI" }\n`;
-      }
-      
+      const { stdout } = await execAsync('certutil -store My');
       return {
         content: [
           {
             type: "text",
-            text: texto,
+            text: `🔍 **Certificados Digitais Disponíveis no Windows**\n\n${stdout}`,
           },
         ],
       };

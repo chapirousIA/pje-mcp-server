@@ -1,22 +1,22 @@
-# Dependencies
+# Dependências
 node_modules/
 package-lock.json
 yarn.lock
 
-# Build output
+# Arquivos de build
 build/
 dist/
 *.js
 *.d.ts
 *.js.map
 
-# Environment files
+# Arquivos de ambiente
 .env
 .env.local
 .env.*.local
 !.env.example
 
-# IDE files
+# Arquivos de IDE
 .vscode/
 .idea/
 *.swp
@@ -24,18 +24,18 @@ dist/
 *~
 .DS_Store
 
-# OS files
+# Arquivos do sistema
 Thumbs.db
 desktop.ini
 
 # Logs
 logs/
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-.pnpm-debug.log*
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+lerna-debug.log
+.pnpm-debug.log
 
 # Testing
 coverage/
@@ -63,4 +63,8 @@ claude_desktop_config.json
 
 # Backup files
 *.backup
-*.bak 
+*.bak
+
+# Arquivos de upload
+uploads/
+*.pdf 

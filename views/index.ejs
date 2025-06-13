@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .tool-card {
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+        .tool-card:hover {
+            transform: translateY(-5px);
+        }
+        .tool-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+        .modal-lg {
+            max-width: 800px;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#"><%= title %></a>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row g-4">
+            <% tools.forEach(function(tool) { %>
+                <div class="col-md-4">
+                    <div class="card tool-card h-100" data-bs-toggle="modal" data-bs-target="#<%= tool.id %>Modal">
+                        <div class="card-body text-center">
+                            <div class="tool-icon"><%= tool.icon %></div>
+                            <h5 class="card-title"><%= tool.name %></h5>
+                        </div>
+                    </div>
+                </div>
+            <% }); %>
+        </div>
+    </div>
+
+    <!-- Modal Buscar Processo -->
+    <div class="modal fade" id="buscar-processoModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Buscar Processo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="buscarProcessoForm">
+                        <div class="mb-3">
+                            <label for="numeroProcesso" class="form-label">Número do Processo</label>
+                            <input type="text" class="form-control" id="numeroProcesso" name="numeroProcesso" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Buscar</button>
+                    </form>
+                    <div id="processoResult" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Petição Eletrônica -->
+    <div class="modal fade" id="peticionarModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Petição Eletrônica</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="peticionarForm">
+                        <div class="mb-3">
+                            <label for="petition" class="form-label">Arquivo da Petição (PDF)</label>
+                            <input type="file" class="form-control" id="petition" name="petition" accept=".pdf" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Enviar Petição</button>
+                    </form>
+                    <div id="peticionarResult" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Petição em Lote -->
+    <div class="modal fade" id="peticionar-loteModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Petição em Lote</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="peticionarLoteForm">
+                        <div class="mb-3">
+                            <label for="petitions" class="form-label">Arquivos das Petições (PDF)</label>
+                            <input type="file" class="form-control" id="petitions" name="petitions" accept=".pdf" multiple required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Enviar Lote</button>
+                    </form>
+                    <div id="peticionarLoteResult" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Função para buscar processo
+        document.getElementById('buscarProcessoForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const resultDiv = document.getElementById('processoResult');
+            
+            try {
+                resultDiv.innerHTML = '<div class="alert alert-info">Buscando processo...</div>';
+                
+                const response = await fetch('/buscar-processo', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        numeroProcesso: form.numeroProcesso.value
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <h6>Processo encontrado:</h6>
+                            <pre>${JSON.stringify(data.processo, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            Erro: ${data.error}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        Erro ao buscar processo: ${error.message}
+                    </div>
+                `;
+            }
+        });
+
+        // Função para enviar petição
+        document.getElementById('peticionarForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const resultDiv = document.getElementById('peticionarResult');
+            
+            try {
+                console.log('Iniciando envio da petição...');
+                resultDiv.innerHTML = '<div class="alert alert-info">Enviando petição...</div>';
+                
+                const formData = new FormData(form);
+                console.log('FormData criado:', formData.get('petition'));
+                
+                console.log('Enviando requisição para /peticionar...');
+                const response = await fetch('/peticionar', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                console.log('Resposta recebida:', response.status);
+                const data = await response.json();
+                console.log('Dados recebidos:', data);
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <h6>Petição protocolada com sucesso:</h6>
+                            <pre>${JSON.stringify(data.protocol, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            Erro: ${data.error}
+                            ${data.details ? `<br>Detalhes: ${data.details}` : ''}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Erro no envio:', error);
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        Erro ao enviar petição: ${error.message}
+                    </div>
+                `;
+            }
+        });
+
+        // Função para enviar lote de petições
+        document.getElementById('peticionarLoteForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const resultDiv = document.getElementById('peticionarLoteResult');
+            
+            try {
+                resultDiv.innerHTML = '<div class="alert alert-info">Enviando lote de petições...</div>';
+                
+                const formData = new FormData(form);
+                const response = await fetch('/peticionar-lote', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    let resultsHtml = '<div class="alert alert-success"><h6>Resultados do lote:</h6><ul>';
+                    data.results.forEach(result => {
+                        resultsHtml += `
+                            <li>
+                                <strong>${result.file}:</strong>
+                                ${result.success ? 
+                                    `Protocolado com sucesso (${result.protocol})` : 
+                                    `Erro: ${result.error}`}
+                            </li>
+                        `;
+                    });
+                    resultsHtml += '</ul></div>';
+                    resultDiv.innerHTML = resultsHtml;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            Erro: ${data.error}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        Erro ao enviar lote: ${error.message}
+                    </div>
+                `;
+            }
+        });
+    </script>
+</body>
+</html> 

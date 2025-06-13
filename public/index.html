@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PJE - Peticionamento em Lote</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            margin: 20px 0;
+        }
+        .upload-area:hover {
+            border-color: #0d6efd;
+        }
+        .file-list {
+            margin-top: 20px;
+        }
+        .protocol-list {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <h1 class="mb-4">PJE - Peticionamento em Lote</h1>
+        
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Upload de Petições</h5>
+                <div class="upload-area" id="uploadArea">
+                    <p class="mb-0">Arraste e solte os arquivos PDF aqui ou clique para selecionar</p>
+                    <input type="file" id="fileInput" multiple accept=".pdf" style="display: none">
+                </div>
+                
+                <div class="file-list" id="fileList"></div>
+                
+                <button class="btn btn-primary" id="uploadButton" disabled>
+                    Enviar Petições
+                </button>
+            </div>
+        </div>
+        
+        <div class="protocol-list" id="protocolList"></div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const uploadButton = document.getElementById('uploadButton');
+        const protocolList = document.getElementById('protocolList');
+        
+        let selectedFiles = [];
+        
+        // Configurar área de upload
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.borderColor = '#0d6efd';
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.style.borderColor = '#ccc';
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.borderColor = '#ccc';
+            handleFiles(e.dataTransfer.files);
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+        
+        function handleFiles(files) {
+            selectedFiles = Array.from(files).filter(file => file.type === 'application/pdf');
+            updateFileList();
+            uploadButton.disabled = selectedFiles.length === 0;
+        }
+        
+        function updateFileList() {
+            fileList.innerHTML = selectedFiles.map(file => `
+                <div class="alert alert-info">
+                    ${file.name}
+                </div>
+            `).join('');
+        }
+        
+        uploadButton.addEventListener('click', async () => {
+            uploadButton.disabled = true;
+            uploadButton.textContent = 'Enviando...';
+            
+            for (const file of selectedFiles) {
+                const formData = new FormData();
+                formData.append('petition', file);
+                
+                try {
+                    console.log('Enviando arquivo:', file.name);
+                    const response = await fetch('/peticionar', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    console.log('Resposta recebida:', response.status);
+                    const result = await response.json();
+                    console.log('Resultado:', result);
+                    
+                    if (result.success) {
+                        protocolList.innerHTML += `
+                            <div class="alert alert-success">
+                                <strong>${file.name}</strong><br>
+                                Protocolo: ${result.protocol}<br>
+                                Processo: ${result.processInfo.numeroProcesso}
+                            </div>
+                        `;
+                    } else {
+                        protocolList.innerHTML += `
+                            <div class="alert alert-danger">
+                                <strong>${file.name}</strong><br>
+                                Erro: ${result.error}
+                                ${result.details ? `<br>Detalhes: ${result.details}` : ''}
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    console.error('Erro ao enviar arquivo:', error);
+                    protocolList.innerHTML += `
+                        <div class="alert alert-danger">
+                            <strong>${file.name}</strong><br>
+                            Erro ao enviar arquivo: ${error.message}
+                        </div>
+                    `;
+                }
+            }
+            
+            uploadButton.textContent = 'Enviar Petições';
+            uploadButton.disabled = false;
+            selectedFiles = [];
+            updateFileList();
+        });
+    </script>
+</body>
+</html> 
